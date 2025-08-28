@@ -10,7 +10,7 @@ from discord.ext import commands, tasks
 # ------------------------
 # CONFIGURATION
 # ------------------------
-DISCORD_TOKEN = ""
+DISCORD_TOKEN = "DISCORD_TOKEN"
 BOT_PREFIX = "..."
 DB_PATH = "sqlite:///bot.db"
 
@@ -235,4 +235,4 @@ async def myscore(ctx):
 # ------------------------
 # RUN BOT
 # ------------------------
-bot.run("")
+bot.run("DISCORD_TOKEN")
