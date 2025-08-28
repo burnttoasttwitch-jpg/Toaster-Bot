@@ -1,2 +1,3 @@
-gunicorn all_in_one_bot_dashboard:app
+gunicorn flask_app:app
+
 
