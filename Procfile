@@ -1,2 +1,2 @@
-gunicorn app:app
+gunicorn all_in_one_bot_dashboard:app
 
