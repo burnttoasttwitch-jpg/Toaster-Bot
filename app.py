@@ -16,3 +16,11 @@ def user_detail(user_id):
     session = SessionLocal()
     user = session.query(User).filter_by(id=user_id).first()
     return render_template("user.html", user=user)
+
+@app.route("/")
+def home():
+    return "Dashboard is running!"
+
+if __name__ == "__main__":
+    # Enable debug mode for hot reloads during development
+    app.run(host="0.0.0.0", port=5000, debug=True)
