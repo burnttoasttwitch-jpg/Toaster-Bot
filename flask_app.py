@@ -4,6 +4,10 @@ from models import db, Note, Warning, ModAction, Score
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
+
+# Your routes here
+@app.route("discord_bot.py")
+
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
