@@ -15,7 +15,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="...", intents=intents)
 
 # Flask app for DB context
-app = Flask(__name__)
+flask_app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
