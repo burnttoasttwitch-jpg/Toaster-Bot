@@ -1,77 +1,88 @@
 import os
 import discord
-from discord.ext import commands, tasks
-from datetime import datetime, timedelta
-from models import db, Note, Warning, ModAction, Score
-from flask import Flask
+from discord.ext import commands
+from flask import Flask, render_template, request, redirect, url_for
+from threading import Thread
+from waitress import serve
 
-TOKEN = os.environ.get("DISCORD_TOKEN")
-DATABASE_URL = os.environ.get("DATABASE_URL")  # e.g., sqlite:///bot.db
-
+# =========================
+# DISCORD BOT SETUP
+# =========================
 intents = discord.Intents.default()
 intents.members = True
-intents.message_content = True
+bot = commands.Bot(command_prefix=".", intents=intents)
 
-bot = commands.Bot(command_prefix="...", intents=intents)
-
-# Flask app for DB context
-flask_app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db.init_app(app)
-
-with app.app_context():
-    db.create_all()
-
-# -----------------------------
-# Example: warn command
-# -----------------------------
-@bot.command()
-async def warn(ctx, user: discord.Member, weight: int = 1, *, reason="No reason provided"):
-    with app.app_context():
-        warn_count = Warning.query.filter_by(user_id=str(user.id)).count() + 1
-        punishment_list = ["3h mute", "6h mute", "24h mute", "72h mute", "ban"]
-        punishment = punishment_list[min(warn_count-1, len(punishment_list)-1)]
-
-        warning = Warning(
-            user_id=str(user.id),
-            reason=reason,
-            weight=weight,
-            punishment=punishment,
-            moderator=str(ctx.author),
-            time=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(days=14)
-        )
-        db.session.add(warning)
-        db.session.commit()
-
-        # Update score
-        score = Score.query.filter_by(user_id=str(user.id)).first()
-        if not score:
-            score = Score(user_id=str(user.id), points=0)
-            db.session.add(score)
-        score.points -= 10 * weight
-        db.session.commit()
-
-    await ctx.send(f"{user.mention} warned for '{reason}'. Suggested punishment: {punishment}")
-
-# -----------------------------
-# Weekly score updater
-# -----------------------------
-@tasks.loop(hours=168)
-async def weekly_score_update():
-    with app.app_context():
-        now = datetime.utcnow()
-        scores = Score.query.all()
-        for s in scores:
-            if (now - s.last_updated).days >= 7:
-                s.points += 5
-                s.last_updated = now
-        db.session.commit()
+# Store warnings/notes in memory (replace with DB later if needed)
+warnings = {}
+notes = {}
 
 @bot.event
 async def on_ready():
-    weekly_score_update.start()
-    print(f"Bot ready: {bot.user}")
+    print(f"✅ Logged in as {bot.user}")
 
-bot.run(TOKEN)
+@bot.command()
+async def warn(ctx, member: discord.Member, *, reason="No reason provided"):
+    user_id = str(member.id)
+    warnings.setdefault(user_id, []).append(reason)
+    await ctx.send(f"⚠️ {member.display_name} has been warned. Reason: {reason}")
+
+@bot.command()
+async def notes_add(ctx, member: discord.Member, *, note):
+    user_id = str(member.id)
+    notes.setdefault(user_id, []).append(note)
+    await ctx.send(f"📝 Note added for {member.display_name}.")
+
+@bot.command()
+async def warnings(ctx, member: discord.Member):
+    user_id = str(member.id)
+    user_warnings = warnings.get(user_id, [])
+    if not user_warnings:
+        await ctx.send(f"✅ {member.display_name} has no warnings.")
+    else:
+        await ctx.send(f"⚠️ Warnings for {member.display_name}: " + "; ".join(user_warnings))
+
+@bot.command()
+async def notes_list(ctx, member: discord.Member):
+    user_id = str(member.id)
+    user_notes = notes.get(user_id, [])
+    if not user_notes:
+        await ctx.send(f"📝 No notes for {member.display_name}.")
+    else:
+        await ctx.send(f"📝 Notes for {member.display_name}: " + "; ".join(user_notes))
+
+
+# =========================
+# FLASK DASHBOARD SETUP
+# =========================
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/users")
+def users_page():
+    # Pass notes and warnings to frontend
+    return render_template("users.html", warnings=warnings, notes=notes)
+
+@app.route("/user/<user_id>")
+def user_page(user_id):
+    return render_template(
+        "user.html",
+        user_id=user_id,
+        user_warnings=warnings.get(user_id, []),
+        user_notes=notes.get(user_id, [])
+    )
+
+# =========================
+# RUN DISCORD BOT + FLASK TOGETHER
+# =========================
+def run_flask():
+    serve(app, host="0.0.0.0", port=8080)
+
+def run_bot():
+    bot.run(os.getenv("DISCORD_TOKEN"))
+
+if __name__ == "__main__":
+    Thread(target=run_flask).start()
+    run_bot()
