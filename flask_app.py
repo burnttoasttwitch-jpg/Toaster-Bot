@@ -3,7 +3,7 @@ from flask import Flask, render_template
 from models import db, Note, Warning, ModAction, Score
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-app = Flask(__name__)
+flask_app = Flask(__name__)
 
 # Your routes here
 @app.route("discord_bot.py")
