@@ -1,38 +1,29 @@
-from threading import Thread
-from flask import Flask, render_template
-from database import SessionLocal, engine, Base
-from models import User
+import discord
 from discord.ext import commands
+from database import SessionLocal
+from models import User
 
-# ---------- Flask Setup ----------
-Base.metadata.create_all(bind=engine)
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    session = SessionLocal()
-    all_users = session.query(User).all()
-    session.close()
-    return render_template("dashboard.html", users=all_users)
-
-@app.route("/user/<int:user_id>")
-def user_detail(user_id):
-    session = SessionLocal()
-    user = session.query(User).filter_by(id=user_id).first()
-    session.close()
-    return render_template("user.html", user=user)
-
-def run_flask():
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-# ---------- Discord Bot Setup ----------
-bot = commands.Bot(command_prefix="!")
+intents = discord.Intents.default()
+intents.messages = True
+bot = commands.Bot(command_prefix="...", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    print(f"Logged in as {bot.user}!")
 
-# ---------- Run Both ----------
+# Example: Command that updates user points
+@bot.command()
+async def addpoints(ctx, user_id: int, points: int):
+    session = SessionLocal()
+    user = session.query(User).filter_by(user_id=user_id).first()
+    if not user:
+        user = User(user_id=user_id, points=0)
+        session.add(user)
+    user.points += points
+    session.commit()
+    session.close()
+    await ctx.send(f"Added {points} points to {user_id}!")
+
 if __name__ == "__main__":
-    Thread(target=run_flask).start()  # Flask runs in a separate thread
-    bot.run("YOUR_DISCORD_TOKEN")     # Bot runs in main thread
+    TOKEN = "DISCORD_TOKEN"
+    bot.run(TOKEN)
