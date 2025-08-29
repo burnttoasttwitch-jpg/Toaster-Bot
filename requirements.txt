@@ -1,5 +1,6 @@
 discord.py
 Flask
-Flask_SQLAlchemy
+SQLAlchemy
+psycopg2-binary
 waitress
 
