@@ -1,63 +1,38 @@
-import discord
-from discord.ext import commands
+from threading import Thread
+from flask import Flask, render_template
 from database import SessionLocal, engine, Base
-from models import User, Warning, Note
+from models import User
+from discord.ext import commands
 
+# ---------- Flask Setup ----------
 Base.metadata.create_all(bind=engine)
-bot = commands.Bot(command_prefix=".", intents=discord.Intents.all())
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    session = SessionLocal()
+    all_users = session.query(User).all()
+    session.close()
+    return render_template("dashboard.html", users=all_users)
+
+@app.route("/user/<int:user_id>")
+def user_detail(user_id):
+    session = SessionLocal()
+    user = session.query(User).filter_by(id=user_id).first()
+    session.close()
+    return render_template("user.html", user=user)
+
+def run_flask():
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
+# ---------- Discord Bot Setup ----------
+bot = commands.Bot(command_prefix="!")
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    print(f"Logged in as {bot.user}")
 
-def get_or_create_user(session, discord_id):
-    user = session.query(User).filter_by(discord_id=str(discord_id)).first()
-    if not user:
-        user = User(discord_id=str(discord_id))
-        session.add(user)
-        session.commit()
-    return user
-
-@bot.command()
-async def warn(ctx, member: discord.Member, *, reason: str):
-    session = SessionLocal()
-    user = get_or_create_user(session, member.id)
-    warning = Warning(reason=reason, user=user)
-    session.add(warning)
-    session.commit()
-    await ctx.send(f"⚠️ {member.mention} has been warned: {reason}")
-    session.close()
-
-@bot.command()
-async def warnings(ctx, member: discord.Member):
-    session = SessionLocal()
-    user = get_or_create_user(session, member.id)
-    if not user.warnings:
-        await ctx.send(f"{member.mention} has no warnings.")
-    else:
-        msg = "\n".join([f"{i+1}. {w.reason}" for i, w in enumerate(user.warnings)])
-        await ctx.send(f"Warnings for {member.mention}:\n{msg}")
-    session.close()
-
-@bot.command()
-async def notes_add(ctx, member: discord.Member, *, note: str):
-    session = SessionLocal()
-    user = get_or_create_user(session, member.id)
-    new_note = Note(content=note, user=user)
-    session.add(new_note)
-    session.commit()
-    await ctx.send(f"📝 Note added for {member.mention}")
-    session.close()
-
-@bot.command()
-async def notes_list(ctx, member: discord.Member):
-    session = SessionLocal()
-    user = get_or_create_user(session, member.id)
-    if not user.notes:
-        await ctx.send(f"{member.mention} has no notes.")
-    else:
-        msg = "\n".join([f"{i+1}. {n.content}" for i, n in enumerate(user.notes)])
-        await ctx.send(f"Notes for {member.mention}:\n{msg}")
-    session.close()
-
-bot.run("YOUR_DISCORD_BOT_TOKEN")
+# ---------- Run Both ----------
+if __name__ == "__main__":
+    Thread(target=run_flask).start()  # Flask runs in a separate thread
+    bot.run("YOUR_DISCORD_TOKEN")     # Bot runs in main thread
