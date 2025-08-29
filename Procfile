@@ -1,3 +1,3 @@
-gunicorn flask_app:app
+gunicorn app::flask_app
 
 
