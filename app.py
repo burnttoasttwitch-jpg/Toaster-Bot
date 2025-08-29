@@ -19,7 +19,8 @@ def user_detail(user_id):
 
 @app.route("/")
 def home():
-    return "Dashboard is running!"
+   session = SessionLocal()
+    return render_template("dashboard.html")
 
 if __name__ == "__main__":
     # Enable debug mode for hot reloads during development
