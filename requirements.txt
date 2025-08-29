@@ -1,4 +1,5 @@
 discord.py
 Flask
 Flask_SQLAlchemy
-gunicorn
+waitress
+
